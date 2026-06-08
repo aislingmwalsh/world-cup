@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walsh Family World Cup Sweepstakes 2026</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #b91c1c;
+            --accent: #10b981;
+            --background: #f3f4f6;
+            --text: #1f2937;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 { text-align: center; color: var(--primary); margin-bottom: 5px; }
+        .pot-info { text-align: center; font-weight: bold; color: var(--accent); margin-bottom: 20px; }
+        
+        .login-box, .wheel-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+        }
+        button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        
+        /* Canvas Wheel Styling */
+        .wheel-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 15px auto;
+        }
+        #canvas { width: 100%; height: 100%; }
+        .pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid var(--secondary);
+            z-index: 10;
+        }
+
+        /* Leaderboard table */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background-color: var(--primary); color: white; }
+        .team-badge {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin: 2px;
+            font-weight: 500;
+        }
+        .team-badge.fav { background: #fee2e2; color: var(--secondary); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🏆 Walsh Family Sweepstake 🏆</h1>
+    <div class="pot-info">€2 Entry | €50 Winner-Takes-All</div>
+
+    <div class="login-box" id="loginBox">
+        <h3>Who is spinning?</h3>
+        <select id="nameDropdown">
+            <option value="">-- Select Your Name --</option>
+        </select>
+        <button onclick="login()">Enter Draw</button>
+    </div>
+
+    <div class="wheel-box" id="wheelBox" style="display: none;">
+        <h2 id="welcomeMsg"></h2>
+        <p id="statusMsg">Loading your slot...</p>
+        <div class="wheel-container" id="canvasContainer" style="display:none;">
+            <div class="pointer"></div>
+            <canvas id="canvas" width="300" height="300"></canvas>
+        </div>
+        <button id="spinBtn" onclick="spinWheel()" style="display:none;">SPIN THE WHEEL!</button>
+    </div>
+
+    <h2>📊 Current Standings & Teams</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Allocated Teams</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboardBody">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // Paste your Firebase Config values here:
+    const firebaseConfig = {
+        apiKey: "AIzaSyCzIcsKqHRbX8srD1IXYFGZf6w-gnCqb0I",
+        authDomain: "family-sweepstake-71d69.firebaseapp.com",
+        databaseURL: "https://family-sweepstake-71d69-default-rtdb.firebaseio.com",
+        projectId: "family-sweepstake-71d69",
+        storageBucket: "family-sweepstake-71d69.firebasestorage.app",
+        messagingSenderId: "449410443722",
+        appId: "1:449410443722:web:03244fd20fe8fa14a38733"
+    };
+    
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Exactly 25 family names
+    const players = [
+        "Úna", "Tony", "Susan", "Anthony", "Chris", "Joanne", "Aisling", "Páraic", 
+        "Kathleen", "Mags", "Mike", "Leon", "Kate", "Conor", "Niamh", "Emma", 
+        "Ciara", "Robert", "Daniel", "Jack", "Liam", "Seán", "Rúairí", "Sadie", "Harry"
+    ];
+
+    // Master 48 Qualified Teams
+    const masterTeams = [
+        "France ⭐", "Spain ⭐", "Argentina", "England", "Portugal", "Brazil", 
+        "Netherlands", "Morocco", "Belgium", "Germany", "Croatia", "Colombia", 
+        "Senegal", "Mexico", "United States", "Uruguay", "Japan", "Switzerland", 
+        "Iran", "Turkey", "Ecuador", "Austria", "South Korea", "Australia", 
+        "Algeria", "Egypt", "Canada", "Norway", "Panama", "Ivory Coast", 
+        "Sweden", "Paraguay", "Czechia", "Scotland", "Tunisia", "DR Congo", 
+        "Uzbekistan", "South Africa", "Bosnia and Herzegovina", "Qatar", "Haiti", 
+        "Curaçao", "New Zealand", "Cape Verde", "Saudi Arabia", "Jordan", "Iraq", "Honduras"
+    ];
+
+    let currentUser = "";
+    let globalState = {}; 
+    let currentWheelTeams = [];
+
+    // Setup Name Dropdown on load
+    const dropdown = document.getElementById('nameDropdown');
+    players.sort().forEach(p => {
+        let opt = document.createElement('option');
+        opt.value = p; opt.textContent = p;
+        dropdown.appendChild(opt);
+    });
+
+    // Sync database and automatically update the Leaderboard Matrix
+    db.ref("sweepstake").on("value", (snapshot) => {
+        globalState = snapshot.val() || {};
+        
+        // Ensure database structure exists if entirely brand new
+        if (!snapshot.exists()) {
+            let initial = { pool: masterTeams, assignments: {} };
+            players.forEach(p => initial.assignments[p] = "");
+            db.ref("sweepstake").set(initial);
+            return;
+        }
+        
+        renderLeaderboard();
+        if (currentUser) updateUserDashboard();
+    });
+
+    function renderLeaderboard() {
+        const tbody = document.getElementById('leaderboardBody');
+        tbody.innerHTML = '';
+        
+        players.forEach(player => {
+            let row = document.createElement('tr');
+            let nameTd = document.createElement('td');
+            nameTd.innerHTML = `<strong>${player}</strong>`;
+            
+            let teamsTd = document.createElement('td');
+            let assignedStr = globalState.assignments ? globalState.assignments[player] : "";
+            
+            if (assignedStr) {
+                assignedStr.split(",").forEach(t => {
+                    let badge = document.createElement('span');
+                    badge.className = 'team-badge' + (t.includes('⭐') ? ' fav' : '');
+                    badge.textContent = t;
+                    teamsTd.appendChild(badge);
+                });
+            } else {
+                teamsTd.innerHTML = `<span style="color:#9ca3af; font-style:italic;">No teams drawn yet</span>`;
+            }
+            
+            row.appendChild(nameTd);
+            row.appendChild(teamsTd);
+            tbody.appendChild(row);
+        });
+    }
+
+    function login() {
+        currentUser = document.getElementById('nameDropdown').value;
+        if (!currentUser) return alert("Please select your name!");
+        
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('wheelBox').style.display = 'block';
+        document.getElementById('welcomeMsg').textContent = `Dia dhuit, ${currentUser}!`;
+        
+        updateUserDashboard();
+    }
+
+    function updateUserDashboard() {
+        let assignedStr = globalState.assignments ? globalState.assignments[currentUser] : "";
+        let currentTeams = assignedStr ? assignedStr.split(",").filter(Boolean) : [];
+        let pool = globalState.pool || [];
+        
+        let status = document.getElementById('statusMsg');
+        let canvasCont = document.getElementById('canvasContainer');
+        let spinBtn = document.getElementById('spinBtn');
+
+        // Logic check: determine if user needs to draw
+        // If someone draws France or Spain, they are locked out from further draws.
+        let hasFavourite = currentTeams.some(t => t.includes('⭐'));
+        
+        if (hasFavourite || currentTeams.length >= 2) {
+            status.innerHTML = "🎉 Your draw is complete! Check your teams below.";
+            canvasCont.style.display = 'none';
+            spinBtn.style.display = 'none';
+            return;
+        }
+
+        // Generate custom available options for this user's specific spin
+        if (currentTeams.length === 0) {
+            // Spin 1: Can be anything
+            currentWheelTeams = [...pool];
+        } else {
+            // Spin 2: Cannot be a favourite team
+            currentWheelTeams = pool.filter(t => !t.includes('⭐'));
+        }
+
+        if (currentWheelTeams.length === 0) {
+            status.innerHTML = "No remaining teams left in the master pool!";
+            return;
+        }
+
+        status.textContent = `You have drawn ${currentTeams.length} team(s). Spin for your next team!`;
+        canvasCont.style.display = 'block';
+        spinBtn.style.display = 'block';
+        spinBtn.disabled = false;
+        
+        drawWheelCanvas(currentWheelTeams.slice(0, 12)); // Display a manageable slice of options on visual wheel
+    }
+
+    // Canvas Wheel Generator logic
+    let currentAngle = 0;
+    function drawWheelCanvas(displayTeams) {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const numSegments = displayTeams.length;
+        const anglePerSeg = (2 * Math.PI) / numSegments;
+        
+        ctx.clearRect(0,0,300,300);
+        
+        for(let i=0; i<numSegments; i++) {
+            ctx.beginPath();
+            ctx.moveTo(150, 150);
+            ctx.arc(150, 150, 140, currentAngle + i*anglePerSeg, currentAngle + (i+1)*anglePerSeg);
+            ctx.fillStyle = i % 2 === 0 ? '#1e3a8a' : '#10b981';
+            ctx.fill();
+            
+            // Add clean segment labels
+            ctx.save();
+            ctx.translate(150, 150);
+            ctx.rotate(currentAngle + i*anglePerSeg + anglePerSeg/2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "white";
+            ctx.font = "bold 11px sans-serif";
+            ctx.fillText(displayTeams[i].substring(0, 12), 130, 5);
+            ctx.restore();
+        }
+    }
+
+    function spinWheel() {
+        const btn = document.getElementById('spinBtn');
+        btn.disabled = true;
+        
+        // Select real random winner from database current slice snapshot array
+        let winningIndex = Math.floor(Math.random() * currentWheelTeams.length);
+        let selectedTeam = currentWheelTeams[winningIndex];
+
+        let duration = 3000; 
+        let startTime = performance.now();
+        
+        function animate(now) {
+            let elapsed = now - startTime;
+            let progress = Math.min(elapsed / duration, 1);
+            // Ease out formula for realistic spin mechanics
+            let easeOut = 1 - Math.pow(1 - progress, 3);
+            
+            currentAngle = easeOut * 40; 
+            
+            // Keep slicing dynamically to make the UI wheel turn fluidly
+            let displaySlice = [...currentWheelTeams];
+            while(displaySlice.length < 8) displaySlice = [...displaySlice, ...displaySlice];
+            drawWheelCanvas(displaySlice.slice(0, 10));
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                finalizeSpin(selectedTeam);
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+
+    function finalizeSpin(team) {
+        let assignedStr = globalState.assignments ? globalState.assignments[currentUser] : "";
+        let currentTeams = assignedStr ? assignedStr.split(",").filter(Boolean) : [];
+        
+        currentTeams.push(team);
+        let updatedAssignments = currentTeams.join(",");
+
+        // Filter the drawn team out of the master remote cloud pool arrays
+        let updatedPool = (globalState.pool || []).filter(t => t !== team);
+
+        // Update database cloud state concurrently
+        db.ref("sweepstake/assignments/" + currentUser).set(updatedAssignments);
+        db.ref("sweepstake/pool").set(updatedPool);
+    }
+</script>
+</body>
+</html>
