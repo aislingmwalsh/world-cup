@@ -416,28 +416,48 @@
 </div>
 
 <script>
-    // Populate Admin Panel dropdown with clean country names
-    setTimeout(() => {
+    // Populate Admin Panel dropdown with clean country names, skipping eliminated ones
+    function refreshAdminDropdown() {
         const teamSel = document.getElementById('adminTeamSelect');
+        if (!teamSel) return; // Safety check
+        const currentSelection = teamSel.value; 
+        
+        teamSel.innerHTML = ''; // Clear existing options
+        
         masterTeams.forEach(t => {
             let clean = t.replace(' ⭐', '');
-            let opt = document.createElement('option');
-            opt.value = clean; opt.textContent = clean;
-            teamSel.appendChild(opt);
+            let stage = globalState.teamStatuses ? globalState.teamStatuses[clean] : "Group Stage";
+            
+            // ONLY add the team to the list if they are NOT eliminated
+            if (stage !== "Eliminated") {
+                let opt = document.createElement('option');
+                opt.value = clean; 
+                opt.textContent = clean;
+                if (clean === currentSelection) opt.selected = true;
+                teamSel.appendChild(opt);
+            }
         });
-    }, 1000);
+    }
 
+    // Trigger the dropdown refresh whenever the database updates
+    db.ref("sweepstake").on("value", (snapshot) => {
+        setTimeout(refreshAdminDropdown, 100); 
+    });
+
+    // Handle the score updates when you click the button
     function updateTeamStatus() {
-        // Simple password checking (Change "Cork2026" to whatever you like)
         if(document.getElementById('adminPass').value !== "Cork2026") {
             return alert("Incorrect Admin Key!");
         }
         let team = document.getElementById('adminTeamSelect').value;
         let status = document.getElementById('adminStatusSelect').value;
         
+        if(!team) return alert("Please select a team first!");
+        
         firebase.database().ref("sweepstake/teamStatuses/" + team).set(status)
             .then(() => alert(`${team} updated to ${status}!`));
     }
 </script>
+
 </body>
 </html>
