@@ -165,15 +165,18 @@
         "Curaçao", "New Zealand", "Cape Verde", "Saudi Arabia", "Jordan", "Iraq", "Ghana"
     ];
 
-    // Point values for stages
+        // Point values updated for the 48-team tournament structure
     const stagePoints = {
         "Group Stage": 0,
-        "Round of 16": 2,
-        "Quarter-Finals": 5,
-        "Semi-Finals": 10,
-        "Finalist": 15,
-        "CHAMPIONS": 25,
+        "Round of 32": 2,      // Added this to reflect the first knockout round!
+        "Round of 16": 5,
+        "Quarter-Finals": 10,
+        "Semi-Finals": 15,
+        "Finalist": 20,
+        "CHAMPIONS": 30,
         "Eliminated": 0
+    };
+
     };
 
     let currentUser = "";
@@ -397,8 +400,9 @@
         <div style="margin-top:10px;">
             <input type="password" id="adminPass" placeholder="Admin Key" style="padding:5px; margin-bottom:5px;"><br>
             <select id="adminTeamSelect" style="width:150px; padding:5px;"></select>
-            <select id="adminStatusSelect" style="width:120px; padding:5px;">
+                        <select id="adminStatusSelect" style="width:120px; padding:5px;">
                 <option value="Group Stage">Group Stage</option>
+                <option value="Round of 32">Round of 32</option>
                 <option value="Round of 16">Round of 16</option>
                 <option value="Quarter-Finals">Quarter-Finals</option>
                 <option value="Semi-Finals">Semi-Finals</option>
@@ -406,6 +410,7 @@
                 <option value="CHAMPIONS">CHAMPIONS</option>
                 <option value="Eliminated">Eliminated</option>
             </select>
+
             <button onclick="updateTeamStatus()" style="width:auto; padding:5px 10px; margin-left:5px; font-size:0.8rem;">Update</button>
         </div>
     </details>
